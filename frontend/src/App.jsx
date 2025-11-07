@@ -1,60 +1,78 @@
-// frontend/src/App.jsx
-import React from 'react';
-import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
-import ChatInterface from './components/ChatInterface';
-import LoginPage from './pages/LoginPage';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { useEffect } from 'react';
+import { store } from './store/store';
+import { checkAuthStatus } from './store/authSlice';
+
+// Layouts
+import MainLayout from './layout/MainLayout';
+import AuthLayout from './layout/AuthLayout';
+
+// Route Guards
 import ProtectedRoute from './components/common/ProtectedRoute';
-import { useAuth } from './context/AuthContext';
-import './App.css';
+import AuthRoute from './components/common/AuthRoute';
+
+// Pages
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DiagnosticPage from './pages/DiagnosticPage';
+import ResultsPage from './pages/ResultsPAge';
+
+// Simple Spinner for initial load
+import Spinner from './components/common/Spinner';
 
 function App() {
-  const { isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
+  const { isLoading } = useSelector((state) => state.auth);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login'); // Redirect to login after logout
+  // On initial app load, check auth status from localStorage
+  useEffect(() => {
+    store.dispatch(checkAuthStatus());
+  }, []);
+
+  // Show a global spinner while Redux rehydrates auth state
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <Spinner />
+      </div>
+    );
   }
 
   return (
-    <div className="App">
-      <nav style={navStyles}>
-        <h1>DigiAssistant</h1>
-        {isAuthenticated && (
-          <button onClick={handleLogout} style={logoutButtonStyles}>Logout</button>
-        )}
-      </nav>
+    <Routes>
 
-      {/* Define Routes */}
-      <Routes>
-        {/* Public Route */}
-        <Route path="/login" element={<LoginPage />} />
-
-        {/* Protected Route */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/diagnostic" element={<ChatInterface />} />
+      {/* 1. Auth Routes (Login / Register) */}
+      {/* Uses <AuthLayout> and is protected by <AuthRoute> */}
+      <Route element={<AuthRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
         </Route>
+      </Route>
 
-        {/* Default route (redirects based on auth) */}
-        <Route path="*" element={isAuthenticated ? <Navigate replace to="/diagnostic" /> : <Navigate replace to="/login" />} />
-      </Routes>
-    </div>
+      {/* 2. Protected Routes (Chat / Results / Dashboard) */}
+      {/* Uses <MainLayout> and is protected by <ProtectedRoute> */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<MainLayout />}>
+          <Route path="/chat" element={<DiagnosticPage />} />
+          <Route path="/diagnostic" element={<DiagnosticPage />} />
+          <Route path="/results/:id" element={<ResultsPage />} />
+          {/* Add other protected pages (like /dashboard) here */}
+        </Route>
+      </Route>
+
+      {/* 3. Public Routes (Landing Page) */}
+      {/* Uses <MainLayout> */}
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<LandingPage />} />
+      </Route>
+
+      {/* 4. Catch-all (404) Route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+
+    </Routes>
   );
 }
-
-// Basic Nav Styles
-const navStyles = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '10px 20px',
-  backgroundColor: '#f0f0f0',
-  borderBottom: '1px solid #ccc'
-};
-const logoutButtonStyles = {
-  padding: '5px 10px',
-  cursor: 'pointer'
-};
-
 
 export default App;

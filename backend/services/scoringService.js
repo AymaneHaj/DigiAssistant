@@ -66,10 +66,15 @@ export function calculateDiagnosticResults(scores) {
 
     for (const [dimName, result] of Object.entries(dimensionResults)) {
         let achieved_level = 0;
-        if (result.paliers[1] > 4) achieved_level = 1;
-        if (result.paliers[2] > 4) achieved_level = 2;
-        if (result.paliers[3] > 4) achieved_level = 3;
-        if (result.paliers[4] > 4) achieved_level = 4;
+        const PALIER_THRESHOLD = 4;
+        if (result.paliers[1] > PALIER_THRESHOLD) {achieved_level = 1;
+            if (result.paliers[2] > PALIER_THRESHOLD) {achieved_level = 2;
+                if (result.paliers[3] > PALIER_THRESHOLD) {achieved_level = 3;
+                    if (result.paliers[4] > PALIER_THRESHOLD) {achieved_level = 4;
+                    }
+                }
+            }
+        }
         result.palier_atteint = achieved_level;
         if (achieved_level < target_palier_level) {
             digital_gaps.push({

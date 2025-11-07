@@ -6,6 +6,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: '#e0f7fa',
+                100: '#b2ebf2',
+                200: '#80deea',
+                300: '#4dd0e1',
+                400: '#26c6da',
+                500: '#00bcd4',
+                600: '#00acc1',
+                700: '#008C9E', // Main Primary Color from Project Brief
+                800: '#006064',
+                900: '#004d40',
+                DEFAULT: '#008C9E',
+              },
+              accent: {
+                50: '#ffebee',
+                100: '#ffcdd2',
+                200: '#ef9a9a',
+                300: '#e57373',
+                400: '#ef5350',
+                500: '#f44336',
+                600: '#008C9E', // Main Accent Color from Project Brief
+                700: '#c62828',
+                800: '#b71c1c',
+                900: '#8b0000',
+                DEFAULT: '#008C9E',
+              },
+              text: {
+                dark: '#343A40', // Dark Text/Shade
+                body: '#5A5A5A', // Body Text
+              },
+              background: {
+                light: '#F8F9FA', // Page background
+                white: '#FFFFFF', // Cards, inputs
+              }
+            }
+          }
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

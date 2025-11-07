@@ -1,101 +1,94 @@
-import google.generativeai as genai
-from config import settings
-from prompts import SYSTEM_PROMPT_ADAPTIVE, SYSTEM_PROMPT_FIRST_QUESTION 
+from openai import AsyncOpenAI
 import json
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
+from config import settings 
+from prompts import SYSTEM_PROMPT_EVALUATE_REACT, SYSTEM_PROMPT_FORMULATE_QUESTION
 
-# Configure the Gemini API
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel('models/gemini-pro-latest')
-
-async def process_ai_turn(
-    history: List[Dict[str, Any]], 
-    user_answer: str, 
-    current_criterion: Dict[str, Any],
-    next_linear_criterion: Dict[str, Any],
-    next_jump_criterion: Optional[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """
-    Handles the entire AI turn: Evaluate, React, Adapt, and Formulate.
-    (L-code dyal had l-function kaybqa NAFS-SO)
-    """
+try:
+    # Use GitHub Models API if OPENAI_BASE_URL is set in .env
+    client = AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_BASE_URL
+    )
+    print(f"API Configured Successfully. Base URL: {settings.OPENAI_BASE_URL}, Model: {settings.OPENAI_MODEL}")
+except Exception as config_error:
+    print(f"FATAL ERROR configuring API: {config_error}")
     
-    prompt_history = []
-    for turn in history:
-        prompt_history.append(f"Q ({turn.get('criterion_id', 'N/A')}): ...")
-        prompt_history.append(f"A: {turn.get('user_answer', 'N/A')}")
-        if 'evaluation' in turn:
-             prompt_history.append(f"EVAL: (Score: {turn['evaluation'].get('score', 0)})")
 
-    current_options_str = "\n".join([f"- Score {opt['score']}: {opt['text']}" for opt in current_criterion.get("options", [])])
-    
-    # --- Logic: Get previous scores for this palier ---
-    current_palier_scores = []
-    current_id = current_criterion.get("id", "")
-    if current_id.endswith("C2"):
-        if history:
-            current_palier_scores.append(history[-1].get("evaluation", {}).get("score", 0))
-    elif current_id.endswith("C3"):
-        if len(history) >= 2:
-            current_palier_scores.append(history[-2].get("evaluation", {}).get("score", 0))
-            current_palier_scores.append(history[-1].get("evaluation", {}).get("score", 0))
+async def evaluate_and_react(user_answer: str, current_criterion: Dict[str, Any]) -> Dict[str, Any]:
+    """Evaluates user answer and provides a reaction using OpenAI GPT-4o."""
 
-    prompt = f"""
+    options_str = "\n".join([f"- Score {opt['score']}: {opt['text']}" for opt in current_criterion.get("options", [])])
+    current_id = current_criterion.get("id", "N/A")
+
+    user_prompt = f"""
+    User's Answer: "{user_answer}"
     ---
-    **Conversation History (Summary):**
-    {"\n".join(prompt_history)}
-    ---
-    **User's Latest Answer (to evaluate):**
-    "{user_answer}"
-    ---
-    **Current Criterion (to score the answer):**
+    Criterion Options (to score the answer):
     - ID: {current_id}
     - Options:
-    {current_options_str}
+    {options_str}
     ---
-    **Adaptive Flow Info:**
-    - Current Palier Scores (so far): {current_palier_scores}
-    - Next Linear Criterion: {next_linear_criterion.get("id", "N/A")}
-    - Next Jump Criterion (if you skip): {next_jump_criterion.get("id", "FINISHED") if next_jump_criterion else "FINISHED"}
-    ---
-    
-    Now, perform all your tasks (Evaluate, React, Adapt, Formulate) and return the JSON object.
-    (Remember the SKIP RULE: if ID ends in P1-C3 and total score <= 2, choose 'Next Jump Criterion').
+    Now, perform the evaluation and reaction tasks and return ONLY the JSON object specified in the system prompt.
     """
-    
-    try:
-        response = await model.generate_content_async(
-            [SYSTEM_PROMPT_ADAPTIVE, prompt],
-            generation_config={"response_mime_type": "application/json"}
-        )
-        result = json.loads(response.text)
-        
-        if 'chosen_next_criterion_id' not in result:
-             result['chosen_next_criterion_id'] = next_linear_criterion.get("id", "N/A")
-             
-        return result
-    except Exception as e:
-        print(f"Error in Gemini Service (Adaptive): {e}")
-        return {
-            "evaluation": {"score": 0, "justification": f"Error processing AI turn: {e}"},
-            "ai_reaction": "Désolé, j'ai eu un petit problème. On continue.",
-            "chosen_next_criterion_id": next_linear_criterion.get("id", "N/A"),
-            "next_question": f"Parlez-moi un peu de: {next_linear_criterion.get('criterion_text', 'la suite')}"
-        }
 
-async def formulate_first_question(criterion_text: str) -> str:
-    """
-    A special function just to get the *very first* question of the diagnostic.
-    (L-code dyal had l-function kaybqa NAFS-SO)
-    """
-    prompt = f"First criterion: '{criterion_text}'\n\nYour friendly welcome question:"
+    response = await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_EVALUATE_REACT},
+            {"role": "user", "content": user_prompt}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.7
+    )
     
-    try:
-        response = await model.generate_content_async(
-            [SYSTEM_PROMPT_FIRST_QUESTION, prompt],
-            generation_config={"response_mime_type": "text/plain"}
-        )
-        return response.text.strip()
-    except Exception as e:
-        print(f"Error formulating first question: {e}")
-        return f"Bonjour! On va commencer. Parlez-moi de: {criterion_text}"
+    result_text = response.choices[0].message.content
+    result = json.loads(result_text)
+
+    if "evaluation" not in result or "ai_reaction" not in result:
+        print(f"OpenAI returned JSON but missing keys: {result}")
+        raise ValueError("OpenAI JSON response is missing required keys.") 
+        
+    return result
+
+
+async def formulate_question(criterion_text: str, is_first_question: bool = False) -> str:
+    """Generates a conversational question using OpenAI GPT-4o."""
+
+    if is_first_question:
+        # For the first question, include a welcome message
+        user_prompt = f"""This is the FIRST question in a digital maturity diagnostic conversation.
+        
+First, write a warm welcome message in FRENCH (Français) that:
+- Welcomes the user to DigiAssistant
+- Explains that you're their intelligent assistant for digital maturity assessment
+- Mentions you'll help them through interactive questions
+- Encourages them to start their digital transformation journey
+- Use friendly emojis (👋, 🚀)
+
+Then, after the welcome, formulate a friendly and concise conversational question in FRENCH based on this criterion:
+Criterion Text: '{criterion_text}'
+
+Format: [Welcome message in French]\n\n[Question in French]"""
+    else:
+        # For subsequent questions, return ONLY the question (no welcome, no greeting, no extra text)
+        user_prompt = f"""This is NOT the first question. The user has already been welcomed.
+        
+Criterion Text: '{criterion_text}'
+
+Return ONLY the question in FRENCH (Français). 
+- NO welcome message
+- NO greeting
+- NO "Merci pour votre réponse" or similar
+- NO extra text
+- Just the question itself, friendly and concise."""
+
+    response = await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_FORMULATE_QUESTION},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.7
+    )
+    return response.choices[0].message.content.strip()

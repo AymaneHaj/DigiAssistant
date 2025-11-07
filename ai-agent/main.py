@@ -1,52 +1,47 @@
 from fastapi import FastAPI, HTTPException
-from models import ( 
-    FirstQuestionRequest, FirstQuestionResponse,
-    ProcessTurnRequest, ProcessTurnResponse
+from models import (
+    EvaluateReactRequest, EvaluateReactResponse,      # Import NEW models
+    FormulateQuestionRequest, FormulateQuestionResponse # Import NEW models
 )
 from services import (
-    formulate_first_question, process_ai_turn
+    evaluate_and_react, formulate_question           # Import NEW services
 )
 
 app = FastAPI(
     title="DigiAssistant AI Agent (Stateless)",
-    description="A pure AI service that generates questions and evaluations for the diagnostic.",
+    description="A pure AI service that generates questions and evaluations for the diagnostic using OpenAI GPT-4o.",
     version="2.0.0"
 )
 
-# --- Endpoint 1: ---
-@app.post("/api/v1/formulate_first_question", response_model=FirstQuestionResponse)
-async def handle_first_question(request: FirstQuestionRequest):
+# --- Endpoint 1: Evaluate & React ---
+@app.post("/api/v1/evaluate_react", response_model=EvaluateReactResponse) # Use NEW endpoint path and model
+async def handle_evaluate_react(request: EvaluateReactRequest): # Use NEW request model
     """
-    Generates the initial welcoming question for the diagnostic.
-    Called only once by the backend (Node.js) at the start of a new conversation.
+    Evaluates the user's answer for a criterion and provides a reaction using OpenAI GPT-4o.
     """
     try:
-        ai_question = await formulate_first_question(request.criterion_text)
-        return FirstQuestionResponse(ai_question=ai_question)
+        # Call the NEW service function
+        result = await evaluate_and_react(request.user_answer, request.current_criterion)
+        return EvaluateReactResponse(**result) # Return NEW response model
     except Exception as e:
-        print(f"Error in /formulate_first_question: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in /evaluate_react endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Agent Error during evaluation: {e}")
 
-# --- Endpoint 2: ---
-@app.post("/api/v1/process_turn", response_model=ProcessTurnResponse)
-async def handle_process_turn(request: ProcessTurnRequest):
+# --- Endpoint 2: Formulate Question ---
+@app.post("/api/v1/formulate_question", response_model=FormulateQuestionResponse) # Use NEW endpoint path and model
+async def handle_formulate_question(request: FormulateQuestionRequest): # Use NEW request model
     """
-    The main "brain" function.
-    Receives the state from the backend (Node.js) and returns the AI's full response.
+    Formulates a conversational question based on criterion text using OpenAI GPT-4o.
     """
     try:
-        ai_response = await process_ai_turn(
-            history=request.history,
-            user_answer=request.user_answer,
-            current_criterion=request.current_criterion,
-            next_linear_criterion=request.next_linear_criterion,
-            next_jump_criterion=request.next_jump_criterion
-        )
-        return ProcessTurnResponse(**ai_response)
+        # Call the NEW service function with is_first_question flag
+        formulated_q = await formulate_question(request.criterion_text, request.is_first_question)
+        return FormulateQuestionResponse(formulated_question=formulated_q) # Return NEW response model
     except Exception as e:
-        print(f"Error in /process_turn: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in /formulate_question endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Agent Error during formulation: {e}")
 
 @app.get("/")
 def read_root():
-    return {"Welcome": "DigiAssistant AI Agent is running!"}
+    return {"Welcome": "DigiAssistant AI Agent (Tool-Based - OpenAI GPT-4o) is running!"} # Updated welcome
+

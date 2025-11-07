@@ -12,7 +12,12 @@ const generateToken = (user) => {
 
 export const register = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, company_name, sector, company_size } = req.body;
+
+        // Validate required fields
+        if (!email || !password || !company_name || !sector || !company_size) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -21,7 +26,13 @@ export const register = async (req, res) => {
         }
 
         // Create new user
-        const user = new User({ email, password });
+        const user = new User({ 
+            email, 
+            password, 
+            company_name, 
+            sector, 
+            company_size 
+        });
         await user.save();
 
         // Generate token
@@ -29,11 +40,21 @@ export const register = async (req, res) => {
 
         res.status(201).json({
             message: 'User registered successfully',
-            user: { id: user._id, email: user.email },
+            user: { 
+                id: user._id, 
+                email: user.email,
+                company_name: user.company_name,
+                sector: user.sector,
+                company_size: user.company_size
+            },
             token
         });
     } catch (error) {
         console.error('Registration error:', error);
+        if (error.name === 'ValidationError') {
+            const errors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({ error: errors.join(', ') });
+        }
         res.status(500).json({ error: 'Registration failed' });
     }
 };

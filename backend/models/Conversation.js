@@ -28,6 +28,11 @@ const ConversationSchema = new mongoose.Schema({
     type: String,
     enum: ['in_progress', 'finished'],
     default: 'in_progress'
+  },
+  UserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 }, { timestamps: true });
 

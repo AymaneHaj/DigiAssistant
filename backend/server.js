@@ -17,16 +17,11 @@ app.use(express.json());
 
 // Public routes
 app.get('/', (req, res) => {
-  res.send('DigiAssistant Backend is running!');
+  res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
 });
 
 // Mount API routes. Individual routes decide whether they need auth.
 app.use('/api', apiRoutes);
-
-// Single root handler
-app.get('/', (req, res) => {
-  res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
-});
 
 
 async function startServer() {

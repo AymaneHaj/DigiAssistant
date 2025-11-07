@@ -3,14 +3,19 @@ import { calculateDiagnosticResults } from '../services/scoringService.js';
 
 export const getResults = async (req, res) => {
     const { conversation_id } = req.params;
+    const UserId = req.user.id;
 
     try {
-        const conversation = await Conversation.findOne({ conversation_id });
-        if (!conversation || !conversation.history || conversation.history.length === 0) {
-            return res.status(404).json({ detail: "Conversation not found or has no history." });
+        const conversation = await Conversation.findOne({
+            conversation_id: conversation_id,
+            UserId: UserId
+        });
+
+        if (!conversation) {
+            return res.status(404).json({ detail: "Conversation not found or access denied." });
         }
 
-        const scores_map = conversation.history.reduce((acc, entry) => {
+        const scores_map = (conversation.history || []).reduce((acc, entry) => {
             if (entry.evaluation) acc[entry.criterion_id] = entry.evaluation;
             return acc;
         }, {});
