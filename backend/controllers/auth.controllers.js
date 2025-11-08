@@ -1,5 +1,6 @@
 import { User } from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -14,6 +15,8 @@ export const register = async (req, res) => {
     try {
         const { email, password, company_name, sector, company_size } = req.body;
 
+        console.log('📝 Registration attempt for:', email);
+
         // Validate required fields
         if (!email || !password || !company_name || !sector || !company_size) {
             return res.status(400).json({ error: 'All fields are required' });
@@ -22,6 +25,7 @@ export const register = async (req, res) => {
         // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
+            console.log('⚠️ User already exists:', email);
             return res.status(400).json({ error: 'Email already registered' });
         }
 
@@ -33,7 +37,23 @@ export const register = async (req, res) => {
             sector, 
             company_size 
         });
+        
+        console.log('💾 Saving user to database...');
         await user.save();
+        console.log('✅ User saved successfully!');
+        console.log('📊 User ID:', user._id);
+        
+        // Get database name from mongoose connection
+        const dbName = mongoose.connection.db?.databaseName || 'Unknown';
+        console.log('📊 Database:', dbName);
+
+        // Verify the user was saved
+        const savedUser = await User.findById(user._id);
+        if (savedUser) {
+            console.log('✅ User verified in database:', savedUser.email);
+        } else {
+            console.error('❌ User not found after save!');
+        }
 
         // Generate token
         const token = generateToken(user);
@@ -50,7 +70,12 @@ export const register = async (req, res) => {
             token
         });
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('❌ Registration error:', error);
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
         if (error.name === 'ValidationError') {
             const errors = Object.values(error.errors).map(err => err.message);
             return res.status(400).json({ error: errors.join(', ') });
