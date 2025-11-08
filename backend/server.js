@@ -1,67 +1,51 @@
-  // backend/server.js
-  import express from 'express';
-  import dotenv from 'dotenv';
-  import { connectDB } from './config/db.js';
-  import apiRoutes from './routes/api.routes.js';
-  import cors from 'cors';
-  import { authMiddleware } from './middleware/auth.js';
+import express from 'express';
+import dotenv from 'dotenv';
+import { connectDB } from './config/db.js';
+import apiRoutes from './routes/api.routes.js';
+import cors from 'cors';
 
-  dotenv.config();
+dotenv.config();
 
-  const app = express();
-  const port = process.env.PORT || 3001;
+const app = express();
+const port = process.env.PORT || 3001;
 
-// Get CORS origins from environment variable (can be comma-separated)
-const corsOrigins = process.env.CORS 
-  ? process.env.CORS.split(',').map(url => url.trim())
-  : [];
-
-// Add localhost for development
-const allowedOrigins = [
-  'http://localhost:5173', // Vite default port
-  'http://localhost:3000', // Common React dev port
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  ...corsOrigins
-];
-
+// --- CORS Configuration (REGEX FIX - THE BEST SOLUTION) ---
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
+    if (!origin) return callback(null, true);
+
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
       return callback(null, true);
     }
-    
-    // Check if origin is in allowed list
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+
+  
+    if (/\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
     }
+
+    // 4. Bloki ay haja okhra
+    console.error('CORS Blocked:', origin); // Log l-origin li t-bloka bach t3ref
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 };
 
+app.use(cors(corsOptions));
+// --- End CORS Fix ---
 
-  // Middleware
-  app.use(cors(corsOptions));
-  app.use(express.json());
+app.use(express.json());
 
-  // Public routes
-  app.get('/', (req, res) => {
-    res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
+app.get('/', (req, res) => {
+  res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
+});
+
+app.use('/api', apiRoutes);
+
+async function startServer() {
+  await connectDB();
+  app.listen(port, () => {
+    console.log("Node.js(ESM) backend listening on port " + port);
   });
+}
 
-  // Mount API routes. Individual routes decide whether they need auth.
-  app.use('/api', apiRoutes);
-
-
-  async function startServer() {
-    await connectDB();
-
-    app.listen(port, () => {
-      console.log(`Node.js (ESM) backend listening on http://127.0.0.1:${port}`);
-    });
-  }
-
-  startServer();
+startServer();
