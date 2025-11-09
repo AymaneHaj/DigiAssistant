@@ -11,7 +11,7 @@ const port = process.env.PORT || 3001;
 
 // --- CORS Configuration ---
 // Get CORS origins from environment variable (can be comma-separated)
-const corsOrigins = process.env.CORS 
+const corsOrigins = process.env.CORS
   ? process.env.CORS.split(',').map(url => url.trim())
   : [];
 
@@ -81,7 +81,7 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
-app.use(cors(corsOptions));
+app.use(cors({ origin: true, credentials: true }));
 // --- End CORS Fix ---
 
 app.use(express.json());
@@ -93,10 +93,15 @@ app.get('/', (req, res) => {
 app.use('/api', apiRoutes);
 
 async function startServer() {
-  await connectDB();
-  console.log('🚀 SERVER WITH REGEX CORS IS RUNNING! 🚀');
-  app.listen(port, () => {
-    console.log("Node.js(ESM) backend listening on port " + port);
+  try {
+    await connectDB();
+    console.log('✅ MongoDB connected successfully');
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err.message);
+  }
+
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${port}`);
   });
 }
 
