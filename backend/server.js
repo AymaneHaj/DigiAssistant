@@ -81,7 +81,9 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
-app.use(cors({ origin: true, credentials: true }));
+app.options('*', cors(corsOptions));
+
+app.use(cors(corsOptions));
 // --- End CORS Fix ---
 
 app.use(express.json());
