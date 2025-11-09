@@ -18,33 +18,68 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
 
-  // Vercel
+  // Vercel (with and without trailing slash)
+  'https://front-digiassistant.vercel.app',
   'https://front-digiassistant.vercel.app/',
+  'https://front-digiassistant.3gittkm4-happyshop120-1488s-projects.vercel.app',
+  'https://front-digiassistant.3gittkm4-happyshop120-1488s-projects.vercel.app/',
+  'https://front-digiassistant-3gitktom4-happyshop120-1488s-projects.vercel.app',
   'https://front-digiassistant-3gitktom4-happyshop120-1488s-projects.vercel.app/'
 ];
 
 console.log('🌐 CORS Configuration:');
 console.log('   Allowed origins:', allowedOrigins);
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n📥 [${timestamp}] ${req.method} ${req.path}`);
+  console.log(`   Origin: ${req.headers.origin || 'No origin'}`);
+  console.log(`   User-Agent: ${req.headers['user-agent']?.substring(0, 50) || 'N/A'}`);
+  next();
+});
+
 // CORS configuration with dynamic origin checking
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    console.log(`🔍 CORS Check - Origin received: "${origin}"`);
     
-    if (allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    // Normalize origin (remove trailing slash for comparison)
+    const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    const normalizedAllowed = allowedOrigins.map(o => o.endsWith('/') ? o.slice(0, -1) : o);
+    
+    if (normalizedAllowed.includes(normalizedOrigin)) {
+      console.log(`✅ Origin allowed: ${origin}`);
       callback(null, true);
     } else {
-      console.warn('⚠️ Blocked origin:', origin);
+      console.warn(`⚠️ Blocked origin: ${origin}`);
+      console.warn(`   Normalized: ${normalizedOrigin}`);
+      console.warn(`   Allowed origins:`, normalizedAllowed);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 };
 
-app.options('*', cors(corsOptions)); 
+// Handle OPTIONS requests explicitly
+app.options('*', (req, res) => {
+  console.log('🔧 Handling OPTIONS preflight request');
+  console.log(`   Origin: ${req.headers.origin}`);
+  cors(corsOptions)(req, res, () => {
+    res.status(200).end();
+  });
+});
+
 app.use(cors(corsOptions)); 
 
 // --- End CORS Fix ---
@@ -55,6 +90,23 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
+
+// Error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('\n❌ Error Handler Triggered:');
+  console.error(`   Method: ${req.method}`);
+  console.error(`   Path: ${req.path}`);
+  console.error(`   Origin: ${req.headers.origin || 'No origin'}`);
+  console.error(`   Error: ${err.message}`);
+  if (err.stack) {
+    console.error(`   Stack: ${err.stack.split('\n').slice(0, 5).join('\n')}`);
+  }
+  
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'CORS policy violation' });
+  }
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
 
 async function startServer() {
   try {
