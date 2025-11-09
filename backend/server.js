@@ -9,9 +9,8 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// --- CORS Configuration (Simplified Test) ---
+// --- CORS Configuration ---
 
-// 1. 7et l links dyalk hna f array
 const allowedOrigins = [
   // Localhost
   'http://localhost:5173',
@@ -19,26 +18,25 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
 
-  // Vercel (mn .env awla 7ethom direct)
-  'https://front-digiassistant.vercel.app',
-  'https://front-digiassistant.3gittkm4-happyshop120-1488s-projects.vercel.app'
+  // Vercel
+  'https://front-digiassistant.vercel.app/',
+  'https://front-digiassistant-3gitktom4-happyshop120-1488s-projects.vercel.app/'
 ];
 
-// 2. T2eked mn l links li 3andek
-console.log('🌐 CORS Configuration (Simple):');
-console.log('   Allowed origins:', allowedOrigins);
+console.log('🌐 CORS Configuration:');
+console.log('   Allowed origins:', allowedOrigins);
 
-// 3. Had l'objet "a7maq" makaydir 7ta logic, ghir kaychof f l array
+// CORS configuration with dynamic origin checking
 const corsOptions = {
-  origin: function (origin, callback) {
-    // 7ta l check dyal !origin ghadi n7ydoh
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      // Ila l origin kayn f l array (awla makaynch origin aslan), qbel
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Ila makaynch, rfed (bla error, bla crash)
-      console.error(`[CORS Blocked] ❌ ${origin}`);
-      callback(null, false);
+      console.warn('⚠️ Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -56,7 +54,7 @@ app.get('/', (req, res) => {
   res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
 });
 
-//app.use('/api', apiRoutes);
+app.use('/api', apiRoutes);
 
 async function startServer() {
   try {
