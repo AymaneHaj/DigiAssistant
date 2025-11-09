@@ -56,7 +56,7 @@ app.get('/', (req, res) => {
   res.send('DigiAssistant Backend (Node.js v2 - Mongoose) is running!');
 });
 
-app.use('/api', apiRoutes);
+//app.use('/api', apiRoutes);
 
 async function startServer() {
   try {
