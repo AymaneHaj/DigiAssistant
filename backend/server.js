@@ -94,6 +94,7 @@ app.use('/api', apiRoutes);
 
 async function startServer() {
   await connectDB();
+  console.log('🚀 SERVER WITH REGEX CORS IS RUNNING! 🚀');
   app.listen(port, () => {
     console.log("Node.js(ESM) backend listening on port " + port);
   });
